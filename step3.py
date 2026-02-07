@@ -1,31 +1,26 @@
 # step3.py
 import librosa
 import numpy as np
-from os import listdir
-from os.path import join
-import json
+import os
 
 # -----------------------------
-# Function: Extract segments
+# Low-level segment extraction
 # -----------------------------
-def extract_segments(audio_path, segment_duration=8.0, overlap=4.0, top_n=None):
+def extract_segments_from_file(audio_path, segment_duration=8.0, overlap=4.0):
     """
-    Extract overlapping segments from a song.
-    If top_n is None → return all segments sorted by energy
-    Otherwise → return top_n segments
+    Extract overlapping segments from a single audio file.
     """
-    # Load audio
     y, sr = librosa.load(audio_path, sr=None)
     audio_duration = librosa.get_duration(y=y, sr=sr)
 
-    # Beat tracking
     tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
     beat_times = librosa.frames_to_time(beats, sr=sr)
 
-    # RMS energy
     rms = librosa.feature.rms(y=y)[0]
-    rms_smooth = np.convolve(rms, np.ones(10)/10, mode='same')
-    energy_times = librosa.frames_to_time(np.arange(len(rms_smooth)), sr=sr)
+    rms_smooth = np.convolve(rms, np.ones(10) / 10, mode="same")
+    energy_times = librosa.frames_to_time(
+        np.arange(len(rms_smooth)), sr=sr
+    )
 
     segments = []
     start_time = 0.0
@@ -33,63 +28,64 @@ def extract_segments(audio_path, segment_duration=8.0, overlap=4.0, top_n=None):
     while start_time + segment_duration <= audio_duration:
         end_time = start_time + segment_duration
 
-        # Energy in this window
-        idx = np.where((energy_times >= start_time) & (energy_times <= end_time))[0]
+        idx = np.where(
+            (energy_times >= start_time) & (energy_times <= end_time)
+        )[0]
+
         if len(idx) == 0:
             start_time += overlap
             continue
 
-        avg_energy = np.mean(rms_smooth[idx])
-
-        # Align start to nearest beat
-        nearest_beat = beat_times[np.argmin(np.abs(beat_times - start_time))]
+        avg_energy = float(np.mean(rms_smooth[idx]))
+        nearest_beat = float(
+            beat_times[np.argmin(np.abs(beat_times - start_time))]
+        )
 
         segments.append({
-            "start": float(nearest_beat),
-            "end": float(nearest_beat + segment_duration),
-            "energy": float(avg_energy),
+            "start": nearest_beat,
+            "end": nearest_beat + segment_duration,
+            "energy": avg_energy,
             "tempo": float(tempo)
         })
 
         start_time += overlap
 
-    # Sort segments by energy
-    sorted_segments = sorted(segments, key=lambda x: x["energy"], reverse=True)
-
-    if top_n is not None:
-        sorted_segments = sorted_segments[:top_n]
-
-    return sorted_segments
+    return sorted(segments, key=lambda x: x["energy"], reverse=True)
 
 # -----------------------------
-# Step 3: Loop through all WAV files
+# ENTRY POINT for app.py
 # -----------------------------
-processed_folder = "processed"
-wav_files = [join(processed_folder, f) for f in listdir(processed_folder) if f.endswith(".wav")]
+def extract_segments(analysis):
+    """
+    Extract segments for all analyzed songs.
+    Accepts output from step2.analyze_audio()
+    """
+    if not analysis:
+        return []
 
-all_segments = []
+    processed_folder = "processed"
+    all_segments = []
 
-for f in wav_files:
-    print(f"\nExtracting segments for: {f}")
-    # Return ALL segments for now (flexible)
-    segments = extract_segments(f, segment_duration=8.0, overlap=4.0, top_n=None)
-    
-    song_segments = {
-        "song": f,
-        "segments": segments
-    }
-    all_segments.append(song_segments)
-    
-    # Print top 5 segments for preview
-    print("Top 5 segments (by energy):")
-    for i, seg in enumerate(segments[:5]):
-        print(f" Segment {i+1}: Start {seg['start']:.2f}s, End {seg['end']:.2f}s, "
-              f"Energy {seg['energy']:.5f}, Tempo {seg['tempo']:.2f} BPM")
+    for song in analysis:
+        wav_path = os.path.join(processed_folder, song["song"])
+
+        if not os.path.exists(wav_path):
+            continue
+
+        segments = extract_segments_from_file(wav_path)
+
+        all_segments.append({
+            "song": song["song"],
+            "tempo": song["tempo"],
+            "key": song["key"],
+            "segments": segments
+        })
+
+    return all_segments
+
 
 # -----------------------------
-# Save all segments to JSON
+# Local testing only
 # -----------------------------
-with open("best_segments_multi.json", "w") as f:
-    json.dump(all_segments, f, indent=4)
-
-print("\n✔ All segments saved to best_segments_multi.json")
+if __name__ == "__main__":
+    print("Run step3 via app.py, not directly.")
