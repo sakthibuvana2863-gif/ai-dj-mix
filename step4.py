@@ -1,74 +1,63 @@
 # step4.py
-import json
 import os
 
-# -----------------------------
-# PARAMETERS
-# -----------------------------
-SEGMENTS_FILE = "best_segments_multi.json"  # from Step 3
-OUTPUT_FILE = os.path.join("output", "mix_order.json")
-TOP_SEGMENTS_PER_SONG = 3        # pick top N segments per song
+def create_mix_order(all_songs_segments, top_segments_per_song=3):
+    """
+    Create DJ mix order using round-robin selection.
+    Accepts output from step3.extract_segments()
+    """
+    if not all_songs_segments:
+        return []
 
-# Ensure output folder exists
-os.makedirs("output", exist_ok=True)
+    # -----------------------------
+    # Pick top segments per song
+    # -----------------------------
+    song_segment_lists = []
 
-# -----------------------------
-# LOAD ALL SONG SEGMENTS
-# -----------------------------
-with open(SEGMENTS_FILE, "r") as f:
-    all_songs_segments = json.load(f)
+    for song_data in all_songs_segments:
+        song = song_data["song"]
+        segments = sorted(
+            song_data["segments"],
+            key=lambda x: x["energy"],
+            reverse=True
+        )
 
-# -----------------------------
-# PICK TOP SEGMENTS PER SONG
-# -----------------------------
-song_segment_lists = []
-for song_data in all_songs_segments:
-    song = song_data["song"]
-    segments = sorted(song_data["segments"], key=lambda x: x["energy"], reverse=True)
+        top_segments = segments[:top_segments_per_song]
 
-    # Pick top N segments per song
-    top_segments = segments[:TOP_SEGMENTS_PER_SONG]
+        for seg in top_segments:
+            seg_copy = seg.copy()
+            seg_copy["song"] = song
+            song_segment_lists.append(seg_copy)
 
-    # Add song info
-    for seg in top_segments:
-        seg["song"] = song
+    # -----------------------------
+    # Round-robin ordering
+    # -----------------------------
+    mix_order = []
+    song_buckets = {}
 
-    song_segment_lists.append(top_segments)
+    for seg in song_segment_lists:
+        song_buckets.setdefault(seg["song"], []).append(seg)
 
-# -----------------------------
-# CREATE MIX ORDER (round-robin)
-# -----------------------------
-mix_order = []
-segment_indices = [0] * len(song_segment_lists)  # track which segment of each song we used
+    indices = {song: 0 for song in song_buckets}
 
-while True:
-    any_left = False
-    # Loop over each song, pick next available segment
-    for i, segments in enumerate(song_segment_lists):
-        idx = segment_indices[i]
-        if idx >= len(segments):
-            continue  # no segments left for this song
+    while True:
+        any_added = False
 
-        seg = segments[idx]
-        segment_indices[i] += 1
-        mix_order.append(seg)
-        any_left = True
+        for song, segs in song_buckets.items():
+            idx = indices[song]
+            if idx < len(segs):
+                mix_order.append(segs[idx])
+                indices[song] += 1
+                any_added = True
 
-    if not any_left:
-        break  # no segments left for any song
+        if not any_added:
+            break
 
-# -----------------------------
-# SAVE MIX ORDER JSON
-# -----------------------------
-with open(OUTPUT_FILE, "w") as f:
-    json.dump(mix_order, f, indent=4)
+    return mix_order
+
 
 # -----------------------------
-# PRINT RESULT
+# Local testing only
 # -----------------------------
-print("\n🎧 DJ Mix Order (all songs included):")
-for i, seg in enumerate(mix_order, start=1):
-    print(f"{i}. {os.path.basename(seg['song'])} | Start: {seg['start']:.2f}s | "
-          f"End: {seg['end']:.2f}s | Energy: {seg['energy']:.4f} | Tempo: {seg['tempo']:.2f} BPM")
-
-print(f"\n✔ Mix order saved to {OUTPUT_FILE}")
+if __name__ == "__main__":
+    print("Run step4 via app.py, not directly.")
