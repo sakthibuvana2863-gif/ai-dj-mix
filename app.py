@@ -44,14 +44,36 @@ if uploaded_files:
         with st.spinner("Processing... Please wait"):
 
             try:
-                process_uploaded_files()
-                analyze_audio()
-                extract_segments()
-                create_mix_order()
-                generate_final_mix()
+                # STEP 1
+                processed_files = process_uploaded_files()
+                if not processed_files:
+                    st.error("No files were processed in Step 1")
+                    st.stop()
+
+                # STEP 2
+                analysis = analyze_audio()
+                if not analysis:
+                    st.error("Audio analysis failed in Step 2")
+                    st.stop()
+
+                # STEP 3
+                segments = extract_segments(analysis)
+                if not segments:
+                    st.error("Segment extraction failed in Step 3")
+                    st.stop()
+
+                # STEP 4
+                mix_order = create_mix_order(segments)
+                if not mix_order:
+                    st.error("Mix ordering failed in Step 4")
+                    st.stop()
+
+                # STEP 5
+                generate_final_mix(mix_order)
 
             except Exception as e:
                 st.error(f"❌ Pipeline failed: {e}")
+
             else:
                 st.success("✅ DJ Mix generated successfully!")
 
