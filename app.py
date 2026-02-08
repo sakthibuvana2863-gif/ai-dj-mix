@@ -1,4 +1,12 @@
 # app.py
+import shutil
+import streamlit as st
+
+if shutil.which("ffprobe") is None:
+    st.error(
+        "ffprobe not found! Make sure 'ffmpeg' is included in packages.txt and redeploy."
+    )
+
 import streamlit as st
 import os
 
@@ -7,6 +15,7 @@ from step2 import analyze_audio
 from step3 import extract_segments
 from step4 import create_mix_order
 from step5 import generate_final_mix
+
 
 # -----------------------------
 # Streamlit Page Setup
@@ -87,3 +96,4 @@ if uploaded_files:
                         )
                 else:
                     st.warning("⚠ Final DJ Mix not found.")
+
