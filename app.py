@@ -1,13 +1,6 @@
 # app.py
 import shutil
 import streamlit as st
-
-if shutil.which("ffprobe") is None:
-    st.error(
-        "ffprobe not found! Make sure 'ffmpeg' is included in packages.txt and redeploy."
-    )
-
-import streamlit as st
 import os
 
 from step1 import process_uploaded_files
@@ -16,12 +9,18 @@ from step3 import extract_segments
 from step4 import create_mix_order
 from step5 import generate_final_mix
 
+# -----------------------------
+# FFprobe check
+# -----------------------------
+if shutil.which("ffprobe") is None:
+    st.error(
+        "ffprobe not found! Make sure 'ffmpeg' is included in packages.txt and redeploy."
+    )
 
 # -----------------------------
 # Streamlit Page Setup
 # -----------------------------
 st.set_page_config(page_title="AI DJ Mix Generator", layout="centered")
-
 st.title("🎧 AI DJ Mix Generator")
 st.write("Upload songs → Automatically generate a DJ mix")
 
@@ -33,6 +32,19 @@ os.makedirs("processed", exist_ok=True)
 os.makedirs("output", exist_ok=True)
 
 # -----------------------------
+# Initialize session state
+# -----------------------------
+if "uploaded_songs" not in st.session_state:
+    st.session_state.uploaded_songs = []
+
+# -----------------------------
+# Clear all uploaded songs button
+# -----------------------------
+if st.button("🗑 Clear All Songs"):
+    st.session_state.uploaded_songs = []
+    st.success("All uploaded songs have been cleared!")
+
+# -----------------------------
 # Upload songs
 # -----------------------------
 uploaded_files = st.file_uploader(
@@ -42,16 +54,32 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
+    # Replace old uploads with new ones
+    st.session_state.uploaded_songs = uploaded_files
     st.success(f"{len(uploaded_files)} song(s) uploaded!")
 
-    for file in uploaded_files:
+    # Save files to "uploads" folder
+    for file in st.session_state.uploaded_songs:
         file_path = os.path.join("uploads", file.name)
         with open(file_path, "wb") as f:
             f.write(file.read())
 
-    if st.button("🎶 Generate DJ Mix"):
-        with st.spinner("Processing... Please wait"):
+# -----------------------------
+# Display current uploaded songs
+# -----------------------------
+if st.session_state.uploaded_songs:
+    st.subheader("Current Songs for Mixing:")
+    for f in st.session_state.uploaded_songs:
+        st.write(f.name)
 
+# -----------------------------
+# Generate DJ Mix
+# -----------------------------
+if st.button("🎶 Generate DJ Mix"):
+    if not st.session_state.uploaded_songs:
+        st.warning("Please upload songs first!")
+    else:
+        with st.spinner("Processing... Please wait"):
             try:
                 # STEP 1
                 processed_files = process_uploaded_files()
@@ -96,4 +124,3 @@ if uploaded_files:
                         )
                 else:
                     st.warning("⚠ Final DJ Mix not found.")
-
