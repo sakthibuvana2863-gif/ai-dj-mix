@@ -80,12 +80,7 @@ def generate_final_mix(mix_order):
         # -----------------------------
         # BPM MATCHING (NEW)
         # -----------------------------
-        if target_bpm:
-            segment_audio = time_stretch_to_bpm(
-                segment_audio,
-                segment_bpm,
-                target_bpm
-            )
+        
 
         # -----------------------------
         # VOLUME NORMALIZATION
@@ -137,3 +132,4 @@ def generate_final_mix(mix_order):
 # -----------------------------
 if __name__ == "__main__":
     print("Run step5 via app.py, not directly.")
+
