@@ -8,6 +8,17 @@ OUTPUT_FOLDER = "output"
 CROSSFADE_DURATION = 2.0  # seconds
 
 
+def normalize_audio(audio, target_peak=0.9):
+    """
+    Normalize audio to a target peak level.
+    Prevents loud/quiet jumps between segments.
+    """
+    peak = np.max(np.abs(audio))
+    if peak == 0:
+        return audio
+    return audio * (target_peak / peak)
+
+
 def generate_final_mix(mix_order):
     """
     Generate final DJ mix WAV using segment timestamps and crossfading.
@@ -40,6 +51,9 @@ def generate_final_mix(mix_order):
             continue
 
         segment_audio = y[start_sample:end_sample]
+
+        # 🔥 NORMALIZE SEGMENT (NEW)
+        segment_audio = normalize_audio(segment_audio)
 
         # First segment
         if final_mix is None:
