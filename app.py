@@ -40,9 +40,24 @@ if "uploaded_songs" not in st.session_state:
 # -----------------------------
 # Clear all uploaded songs button
 # -----------------------------
+# -----------------------------
+# Clear all uploaded songs button (FIXED)
+# -----------------------------
 if st.button("🗑 Clear All Songs"):
     st.session_state.uploaded_songs = []
-    st.success("All uploaded songs have been cleared!")
+
+    # Clear uploads, processed, and output folders
+    for folder in ["uploads", "processed", "output"]:
+        if os.path.exists(folder):
+            for file in os.listdir(folder):
+                file_path = os.path.join(folder, file)
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+
+    st.success("All uploaded songs and cached files have been cleared!")
+
 
 # -----------------------------
 # Upload songs
@@ -124,3 +139,4 @@ if st.button("🎶 Generate DJ Mix"):
                         )
                 else:
                     st.warning("⚠ Final DJ Mix not found.")
+
