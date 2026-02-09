@@ -1,21 +1,21 @@
 # step4.py
-import os
 
 def create_mix_order(all_songs_segments, top_segments_per_song=3):
     """
-    Create DJ mix order using round-robin selection.
+    Create DJ mix order using ENERGY CURVE method.
     Accepts output from step3.extract_segments()
     """
     if not all_songs_segments:
         return []
 
     # -----------------------------
-    # Pick top segments per song
+    # Collect top segments from all songs
     # -----------------------------
-    song_segment_lists = []
+    all_segments = []
 
     for song_data in all_songs_segments:
         song = song_data["song"]
+
         segments = sorted(
             song_data["segments"],
             key=lambda x: x["energy"],
@@ -27,31 +27,33 @@ def create_mix_order(all_songs_segments, top_segments_per_song=3):
         for seg in top_segments:
             seg_copy = seg.copy()
             seg_copy["song"] = song
-            song_segment_lists.append(seg_copy)
+            all_segments.append(seg_copy)
+
+    if not all_segments:
+        return []
 
     # -----------------------------
-    # Round-robin ordering
+    # Sort segments by energy (low → high)
     # -----------------------------
-    mix_order = []
-    song_buckets = {}
+    all_segments.sort(key=lambda x: x["energy"])
 
-    for seg in song_segment_lists:
-        song_buckets.setdefault(seg["song"], []).append(seg)
+    n = len(all_segments)
 
-    indices = {song: 0 for song in song_buckets}
+    # -----------------------------
+    # Energy Curve layout
+    # -----------------------------
+    intro = all_segments[: n // 4]                 # low energy
+    buildup = all_segments[n // 4 : n // 2]        # medium
+    peak = all_segments[n // 2 : (3 * n) // 4]     # high
+    cooldown = all_segments[(3 * n) // 4 :]        # highest → drop later
 
-    while True:
-        any_added = False
+    # Peak should feel intense → reverse it
+    peak = list(reversed(peak))
 
-        for song, segs in song_buckets.items():
-            idx = indices[song]
-            if idx < len(segs):
-                mix_order.append(segs[idx])
-                indices[song] += 1
-                any_added = True
-
-        if not any_added:
-            break
+    # -----------------------------
+    # Final DJ mix order
+    # -----------------------------
+    mix_order = intro + buildup + peak + cooldown
 
     return mix_order
 
