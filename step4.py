@@ -1,65 +1,74 @@
 # step4.py
-
-def create_mix_order(all_songs_segments, top_segments_per_song=3):
+def create_mix_order(all_songs_segments, top_segments_per_song=3, bpm_tolerance=6):
     """
-    Create DJ mix order using ENERGY CURVE method.
+    Create DJ mix order using BPM-aware + round-robin selection.
     Accepts output from step3.extract_segments()
     """
+
     if not all_songs_segments:
         return []
 
     # -----------------------------
-    # Collect top segments from all songs
+    # Sort songs by tempo (BPM)
     # -----------------------------
-    all_segments = []
+    sorted_songs = sorted(
+        all_songs_segments,
+        key=lambda x: x["tempo"]
+    )
 
-    for song_data in all_songs_segments:
-        song = song_data["song"]
-
-        segments = sorted(
-            song_data["segments"],
-            key=lambda x: x["energy"],
-            reverse=True
-        )
-
-        top_segments = segments[:top_segments_per_song]
-
-        for seg in top_segments:
-            seg_copy = seg.copy()
-            seg_copy["song"] = song
-            all_segments.append(seg_copy)
-
-    if not all_segments:
-        return []
+    mix_order = []
 
     # -----------------------------
-    # Sort segments by energy (low → high)
+    # Group songs with similar BPM
     # -----------------------------
-    all_segments.sort(key=lambda x: x["energy"])
+    bpm_groups = []
+    current_group = [sorted_songs[0]]
 
-    n = len(all_segments)
+    for song in sorted_songs[1:]:
+        last_bpm = current_group[-1]["tempo"]
+
+        if abs(song["tempo"] - last_bpm) <= bpm_tolerance:
+            current_group.append(song)
+        else:
+            bpm_groups.append(current_group)
+            current_group = [song]
+
+    bpm_groups.append(current_group)
 
     # -----------------------------
-    # Energy Curve layout
+    # Round-robin inside each BPM group
     # -----------------------------
-    intro = all_segments[: n // 4]                 # low energy
-    buildup = all_segments[n // 4 : n // 2]        # medium
-    peak = all_segments[n // 2 : (3 * n) // 4]     # high
-    cooldown = all_segments[(3 * n) // 4 :]        # highest → drop later
+    for group in bpm_groups:
+        buckets = {}
 
-    # Peak should feel intense → reverse it
-    peak = list(reversed(peak))
+        for song_data in group:
+            song = song_data["song"]
+            segments = sorted(
+                song_data["segments"],
+                key=lambda x: x["energy"],
+                reverse=True
+            )[:top_segments_per_song]
 
-    # -----------------------------
-    # Final DJ mix order
-    # -----------------------------
-    mix_order = intro + buildup + peak + cooldown
+            buckets[song] = segments
+
+        indices = {song: 0 for song in buckets}
+
+        while True:
+            added = False
+            for song in buckets:
+                idx = indices[song]
+                if idx < len(buckets[song]):
+                    seg = buckets[song][idx].copy()
+                    seg["song"] = song
+                    mix_order.append(seg)
+                    indices[song] += 1
+                    added = True
+
+            if not added:
+                break
 
     return mix_order
 
 
-# -----------------------------
-# Local testing only
-# -----------------------------
 if __name__ == "__main__":
     print("Run step4 via app.py, not directly.")
